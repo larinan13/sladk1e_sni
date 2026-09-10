@@ -34,19 +34,13 @@ const DEFAULT_ROOMS = [
 ];
 
 // ===== ИНИЦИАЛИЗАЦИЯ ДАННЫХ =====
-// Эта функция вызывается на КАЖДОЙ странице при загрузке
 function initStorage() {
-    // Инициализация номеров
     if (!localStorage.getItem(STORAGE_KEYS.ROOMS)) {
         localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(DEFAULT_ROOMS));
     }
-    
-    // Инициализация заявок
     if (!localStorage.getItem(STORAGE_KEYS.BOOKINGS)) {
         localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify([]));
     }
-    
-    // Инициализация пользователей (админ по умолчанию)
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
         const defaultUsers = [
             { username: 'admin', password: 'admin', role: 'admin' }
@@ -55,7 +49,6 @@ function initStorage() {
     }
 }
 
-// Вызываем инициализацию сразу
 initStorage();
 
 // ===== ФУНКЦИИ РАБОТЫ С ДАННЫМИ =====
@@ -114,6 +107,8 @@ function showFlash(message, type = 'success') {
         const main = document.querySelector('main');
         if (main) {
             main.parentNode.insertBefore(container, main);
+        } else {
+            document.body.appendChild(container);
         }
     }
     
@@ -177,7 +172,6 @@ function renderBookings(bookings) {
         return;
     }
     
-    // Сортировка: сначала новые
     bookings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     
     container.innerHTML = bookings.map(booking => {
@@ -191,9 +185,12 @@ function renderBookings(bookings) {
         return `
             <div class="card">
                 <div class="card-body">
+                    <h5>Заявка #${booking.id}</h5>
+                    <h5>От пользователя: ${booking.user || 'guest'}</h5>
                     <h5>Фамилия: ${booking.last_name}</h5>
                     <h5>Имя: ${booking.name}</h5>
                     <h5>Телефон: ${booking.phone}</h5>
+                    <h5>Email: ${booking.email}</h5>
                     <ul class="list-group">
                         <li class="list-group-item">Дата заезда: ${booking.check_in}</li>
                         <li class="list-group-item">Дата выезда: ${booking.check_out}</li>
@@ -206,6 +203,55 @@ function renderBookings(bookings) {
                         <button class="btn btn-danger w-100" onclick="rejectBooking(${booking.id})">Отклонить</button>
                     </div>
                 ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// ===== РЕНДЕРИНГ ЗАЯВОК ПОЛЬЗОВАТЕЛЯ =====
+function renderMyBookings(bookings) {
+    const container = document.getElementById('myBookingsContainer');
+    if (!container) return;
+    
+    if (!bookings || bookings.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center my-5">
+                <h3>У вас пока нет заявок на бронирование.</h3>
+                <a href="index.html" class="btn btn-primary mt-3">Перейти в каталог номеров</a>
+            </div>
+        `;
+        return;
+    }
+    
+    bookings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    const rooms = getRooms();
+    
+    container.innerHTML = bookings.map(booking => {
+        const statusMap = {
+            pending: { class: 'warning', text: 'На рассмотрении' },
+            approved: { class: 'success', text: 'Одобрена' },
+            rejected: { class: 'danger', text: 'Отклонена' }
+        };
+        const status = statusMap[booking.status] || statusMap.pending;
+        
+        const room = rooms.find(r => r.id === booking.room_id);
+        const roomInfo = room ? `Категория: ${room.category} (${room.price} ₽/чел)` : 'Номер недоступен';
+        
+        return `
+            <div class="card">
+                <div class="card-body">
+                    <h5>Заявка #${booking.id}</h5>
+                    <h5 class="text-body-secondary">${roomInfo}</h5>
+                    <h5>Фамилия: ${booking.last_name}</h5>
+                    <h5>Имя: ${booking.name}</h5>
+                    <h5>Телефон: ${booking.phone}</h5>
+                    <ul class="list-group">
+                        <li class="list-group-item">Дата заезда: ${booking.check_in}</li>
+                        <li class="list-group-item">Дата выезда: ${booking.check_out}</li>
+                    </ul>
+                    <span class="badge bg-${status.class} mt-2">${status.text}</span>
+                </div>
             </div>
         `;
     }).join('');
@@ -236,48 +282,45 @@ function rejectBooking(id) {
 
 // ===== ОБНОВЛЕНИЕ ШАПКИ =====
 function updateHeader() {
-    // Обновляем ссылку на панель администратора / вход / регистрацию
-    const navList = document.querySelector('header .nav');
-    if (!navList) return;
-    
     const user = getCurrentUser();
     const adminLink = document.getElementById('adminLink');
+    const registerLink = document.getElementById('registerLink');
     
     if (user) {
-        // Пользователь вошёл — показываем имя и выход
         if (adminLink) {
             if (user.role === 'admin') {
                 adminLink.href = 'admin.html';
-                adminLink.textContent = `Панель администратора`;
+                adminLink.textContent = 'Панель администратора';
             } else {
                 adminLink.href = 'my-bookings.html';
                 adminLink.textContent = `Мои заявки (${user.username})`;
             }
         }
+        if (registerLink) {
+            registerLink.style.display = 'none';
+        }
     } else {
-        // Не вошёл — показываем вход/регистрацию
         if (adminLink) {
             adminLink.href = 'login.html';
             adminLink.textContent = 'Войти';
+        }
+        if (registerLink) {
+            registerLink.style.display = '';
         }
     }
 }
 
 // ================================================
-// ИНИЦИАЛИЗАЦИЯ СТРАНИЦ
+// ИНИЦИАЛИЗАЦИЯ СТРАНИЦ (при загрузке DOM)
 // ================================================
-
 document.addEventListener('DOMContentLoaded', function() {
     updateHeader();
     
     // ===== ГЛАВНАЯ СТРАНИЦА =====
     if (document.getElementById('roomsContainer')) {
-        console.log('Главная страница: загружаем номера...');
         const rooms = getRooms();
-        console.log('Загружено номеров:', rooms.length);
         renderRooms(rooms);
         
-        // Фильтрация
         document.querySelectorAll('.dropdown-item[data-category]').forEach(btn => {
             btn.addEventListener('click', function() {
                 const category = this.dataset.category;
@@ -286,7 +329,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Кнопка "Применить" (показать все)
         const applyBtn = document.getElementById('applyFilter');
         if (applyBtn) {
             applyBtn.addEventListener('click', function() {
@@ -307,7 +349,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('roomCategory').textContent = `Категория: ${room.category}`;
         }
         
-        // Маска телефона
         if (typeof $ !== 'undefined' && $.fn.inputmask) {
             $('#validationCustomPhone').inputmask({"mask": "+7(999)999-99-99"});
         }
@@ -325,7 +366,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 check_out: formData.get('check_out')
             };
             
-            // Валидация
             let errors = [];
             if (!data.name) errors.push('Имя обязательно для заполнения.');
             if (!data.last_name) errors.push('Фамилия обязательна для заполнения.');
@@ -448,6 +488,37 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(() => window.location.href = 'index.html', 1000);
                 });
             }
+        }
+    }
+    
+    // ===== СТРАНИЦА "МОИ ЗАЯВКИ" =====
+    if (document.getElementById('myBookingsContainer')) {
+        const user = getCurrentUser();
+        
+        if (!user) {
+            showFlash('Для доступа к этой странице необходимо войти.', 'danger');
+            setTimeout(() => window.location.href = 'login.html', 1500);
+            return;
+        }
+        
+        const greeting = document.getElementById('userGreeting');
+        if (greeting) {
+            greeting.textContent = `Вы вошли как: ${user.username}`;
+        }
+        
+        const allBookings = getBookings();
+        const myBookings = allBookings.filter(b => b.user === user.username);
+        
+        renderMyBookings(myBookings);
+        
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                logout();
+                showFlash('Вы вышли из системы.', 'info');
+                setTimeout(() => window.location.href = 'index.html', 1000);
+            });
         }
     }
 });
