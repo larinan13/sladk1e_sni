@@ -1,15 +1,14 @@
 // app.js
 
-// ===== ХРАНИЛИЩЕ ДАННЫХ =====
-
-// Ключи для localStorage
+// ===== КОНСТАНТЫ =====
 const STORAGE_KEYS = {
     ROOMS: 'sweet_dreams_rooms',
     BOOKINGS: 'sweet_dreams_bookings',
-    USER: 'sweet_dreams_user'
+    USERS: 'sweet_dreams_users',
+    CURRENT_USER: 'sweet_dreams_current_user'
 };
 
-// Данные по умолчанию
+// Данные о номерах (создаются один раз)
 const DEFAULT_ROOMS = [
     {
         "id": 1,
@@ -34,14 +33,34 @@ const DEFAULT_ROOMS = [
     }
 ];
 
-// ===== ФУНКЦИИ РАБОТЫ С ДАННЫМИ =====
-
-function getRooms() {
-    const data = localStorage.getItem(STORAGE_KEYS.ROOMS);
-    if (data) {
-        return JSON.parse(data);
+// ===== ИНИЦИАЛИЗАЦИЯ ДАННЫХ =====
+// Эта функция вызывается на КАЖДОЙ странице при загрузке
+function initStorage() {
+    // Инициализация номеров
+    if (!localStorage.getItem(STORAGE_KEYS.ROOMS)) {
+        localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(DEFAULT_ROOMS));
     }
-    return DEFAULT_ROOMS;
+    
+    // Инициализация заявок
+    if (!localStorage.getItem(STORAGE_KEYS.BOOKINGS)) {
+        localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify([]));
+    }
+    
+    // Инициализация пользователей (админ по умолчанию)
+    if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+        const defaultUsers = [
+            { username: 'admin', password: 'admin', role: 'admin' }
+        ];
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultUsers));
+    }
+}
+
+// Вызываем инициализацию сразу
+initStorage();
+
+// ===== ФУНКЦИИ РАБОТЫ С ДАННЫМИ =====
+function getRooms() {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.ROOMS) || '[]');
 }
 
 function saveRooms(rooms) {
@@ -49,38 +68,54 @@ function saveRooms(rooms) {
 }
 
 function getBookings() {
-    const data = localStorage.getItem(STORAGE_KEYS.BOOKINGS);
-    if (data) {
-        return JSON.parse(data);
-    }
-    return [];
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS) || '[]');
 }
 
 function saveBookings(bookings) {
     localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(bookings));
 }
 
-function isAdmin() {
-    return localStorage.getItem(STORAGE_KEYS.USER) === 'admin';
+function getUsers() {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
 }
 
-function login(username, password) {
-    if (username === 'admin' && password === 'admin') {
-        localStorage.setItem(STORAGE_KEYS.USER, 'admin');
-        return true;
-    }
-    return false;
+function saveUsers(users) {
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+}
+
+function getCurrentUser() {
+    const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    return data ? JSON.parse(data) : null;
+}
+
+function setCurrentUser(user) {
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
 }
 
 function logout() {
-    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+}
+
+function isAdmin() {
+    const user = getCurrentUser();
+    return user && user.role === 'admin';
+}
+
+function isAuthenticated() {
+    return getCurrentUser() !== null;
 }
 
 // ===== FLASH-СООБЩЕНИЯ =====
-
 function showFlash(message, type = 'success') {
-    const container = document.getElementById('flashContainer');
-    if (!container) return;
+    let container = document.getElementById('flashContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'flashContainer';
+        const main = document.querySelector('main');
+        if (main) {
+            main.parentNode.insertBefore(container, main);
+        }
+    }
     
     const alert = document.createElement('div');
     alert.className = `alert alert-${type} alert-dismissible fade show my-2`;
@@ -91,19 +126,17 @@ function showFlash(message, type = 'success') {
     `;
     container.appendChild(alert);
     
-    // Автоматическое исчезновение через 5 секунд
     setTimeout(() => {
-        alert.remove();
+        if (alert.parentNode) alert.remove();
     }, 5000);
 }
 
-// ===== ОТОБРАЖЕНИЕ НОМЕРОВ =====
-
+// ===== РЕНДЕРИНГ НОМЕРОВ =====
 function renderRooms(rooms) {
     const container = document.getElementById('roomsContainer');
     if (!container) return;
     
-    if (rooms.length === 0) {
+    if (!rooms || rooms.length === 0) {
         container.innerHTML = `
             <div class="col-12 text-center my-5">
                 <h3>Нет номеров, соответствующих вашему запросу.</h3>
@@ -114,7 +147,7 @@ function renderRooms(rooms) {
     
     container.innerHTML = rooms.map(room => `
         <div class="card">
-            <img src="${room.img}" class="card-img-top" alt="${room.category}">
+            <img src="${room.img}" class="card-img-top" alt="${room.category}" onerror="this.style.display='none'">
             <div class="card-body">
                 <h3>Категория: ${room.category}</h3>
                 <h5>Цена: ${room.price} ₽ / чел</h5>
@@ -130,23 +163,12 @@ function renderRooms(rooms) {
     `).join('');
 }
 
-// ===== ФИЛЬТРАЦИЯ =====
-
-function filterRooms(category) {
-    const rooms = getRooms();
-    if (category) {
-        return rooms.filter(room => room.category === category);
-    }
-    return rooms;
-}
-
-// ===== ОТОБРАЖЕНИЕ ЗАЯВОК (АДМИН) =====
-
+// ===== РЕНДЕРИНГ ЗАЯВОК (АДМИН) =====
 function renderBookings(bookings) {
     const container = document.getElementById('bookingsContainer');
     if (!container) return;
     
-    if (bookings.length === 0) {
+    if (!bookings || bookings.length === 0) {
         container.innerHTML = `
             <div class="col-12 text-center my-5">
                 <h3>Нет заявок на бронирование.</h3>
@@ -190,7 +212,6 @@ function renderBookings(bookings) {
 }
 
 // ===== ДЕЙСТВИЯ С ЗАЯВКАМИ =====
-
 function approveBooking(id) {
     const bookings = getBookings();
     const booking = bookings.find(b => b.id === id);
@@ -213,158 +234,220 @@ function rejectBooking(id) {
     }
 }
 
-// ===== ИНИЦИАЛИЗАЦИЯ СТРАНИЦ =====
-
-// Главная страница
-if (document.getElementById('roomsContainer')) {
-    const rooms = getRooms();
-    renderRooms(rooms);
+// ===== ОБНОВЛЕНИЕ ШАПКИ =====
+function updateHeader() {
+    // Обновляем ссылку на панель администратора / вход / регистрацию
+    const navList = document.querySelector('header .nav');
+    if (!navList) return;
     
-    // Фильтрация
-    document.querySelectorAll('.dropdown-item[data-category]').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const category = this.dataset.category;
-            document.getElementById('applyFilter').dataset.category = category;
-        });
-    });
-    
-    document.getElementById('applyFilter').addEventListener('click', function() {
-        const category = this.dataset.category;
-        const filtered = filterRooms(category);
-        renderRooms(filtered);
-    });
-    
-    // Проверка авторизации для ссылки в админку
+    const user = getCurrentUser();
     const adminLink = document.getElementById('adminLink');
-    if (adminLink && !isAdmin()) {
-        adminLink.href = 'login.html';
-        adminLink.textContent = 'Войти как администратор';
-    }
-}
-
-// Страница бронирования
-if (document.getElementById('bookingForm')) {
-    // Получаем ID номера из URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomId = parseInt(urlParams.get('room_id'));
-    document.getElementById('roomId').value = roomId;
     
-    // Находим номер и отображаем категорию
-    const rooms = getRooms();
-    const room = rooms.find(r => r.id === roomId);
-    if (room) {
-        document.getElementById('roomCategory').textContent = `Категория: ${room.category}`;
-    }
-    
-    // Настройка маски для телефона
-    if (typeof $.fn.inputmask !== 'undefined') {
-        $('#validationCustomPhone').inputmask({"mask": "+7(999)999-99-99"});
-    }
-    
-    // Обработка формы
-    document.getElementById('bookingForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        const data = {
-            name: formData.get('name'),
-            last_name: formData.get('last_name'),
-            phone: formData.get('phone'),
-            email: formData.get('email'),
-            check_in: formData.get('check_in'),
-            check_out: formData.get('check_out')
-        };
-        
-        // Валидация
-        let errors = [];
-        if (!data.name) errors.push('Имя обязательно для заполнения.');
-        if (!data.last_name) errors.push('Фамилия обязательна для заполнения.');
-        if (!data.phone) errors.push('Телефон обязателен для заполнения.');
-        if (!data.email) errors.push('Email обязателен для заполнения.');
-        if (!data.check_in) errors.push('Дата заезда обязательна для заполнения.');
-        if (!data.check_out) errors.push('Дата выезда обязательна для заполнения.');
-        
-        if (data.email && !data.email.includes('@')) {
-            errors.push('Некорректный формат email.');
-        }
-        
-        if (data.check_in && data.check_out) {
-            const checkIn = new Date(data.check_in);
-            const checkOut = new Date(data.check_out);
-            if (checkOut <= checkIn) {
-                errors.push('Дата выезда должна быть позже даты заезда.');
+    if (user) {
+        // Пользователь вошёл — показываем имя и выход
+        if (adminLink) {
+            if (user.role === 'admin') {
+                adminLink.href = 'admin.html';
+                adminLink.textContent = `Панель администратора`;
+            } else {
+                adminLink.href = 'my-bookings.html';
+                adminLink.textContent = `Мои заявки (${user.username})`;
             }
         }
-        
-        if (errors.length > 0) {
-            showFlash(errors.join('<br>'), 'danger');
-            return;
+    } else {
+        // Не вошёл — показываем вход/регистрацию
+        if (adminLink) {
+            adminLink.href = 'login.html';
+            adminLink.textContent = 'Войти';
         }
-        
-        // Сохраняем заявку
-        const bookings = getBookings();
-        const newBooking = {
-            id: bookings.length > 0 ? Math.max(...bookings.map(b => b.id)) + 1 : 1,
-            room_id: parseInt(document.getElementById('roomId').value),
-            name: data.name.trim(),
-            last_name: data.last_name.trim(),
-            phone: data.phone.trim(),
-            email: data.email.trim(),
-            check_in: data.check_in,
-            check_out: data.check_out,
-            status: 'pending',
-            created_at: new Date().toISOString()
-        };
-        bookings.push(newBooking);
-        saveBookings(bookings);
-        
-        showFlash('Ваша заявка успешно отправлена на рассмотрение!', 'success');
-        setTimeout(() => {
-            window.location.href = 'index.html';
-        }, 1500);
-    });
+    }
 }
 
-// Страница входа
-if (document.getElementById('loginForm')) {
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        
-        if (login(username, password)) {
-            showFlash('Вы успешно вошли как администратор.', 'success');
-            setTimeout(() => {
-                window.location.href = 'admin.html';
-            }, 1000);
-        } else {
-            showFlash('Неверный логин или пароль.', 'danger');
-        }
-    });
-}
+// ================================================
+// ИНИЦИАЛИЗАЦИЯ СТРАНИЦ
+// ================================================
 
-// Страница администратора
-if (document.getElementById('bookingsContainer')) {
-    // Проверка авторизации
-    if (!isAdmin()) {
-        showFlash('Для доступа к этой странице необходимо войти как администратор.', 'danger');
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 1500);
-        return;
+document.addEventListener('DOMContentLoaded', function() {
+    updateHeader();
+    
+    // ===== ГЛАВНАЯ СТРАНИЦА =====
+    if (document.getElementById('roomsContainer')) {
+        console.log('Главная страница: загружаем номера...');
+        const rooms = getRooms();
+        console.log('Загружено номеров:', rooms.length);
+        renderRooms(rooms);
+        
+        // Фильтрация
+        document.querySelectorAll('.dropdown-item[data-category]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const category = this.dataset.category;
+                const filtered = getRooms().filter(r => r.category === category);
+                renderRooms(filtered);
+            });
+        });
+        
+        // Кнопка "Применить" (показать все)
+        const applyBtn = document.getElementById('applyFilter');
+        if (applyBtn) {
+            applyBtn.addEventListener('click', function() {
+                renderRooms(getRooms());
+            });
+        }
     }
     
-    const bookings = getBookings();
-    renderBookings(bookings);
+    // ===== СТРАНИЦА БРОНИРОВАНИЯ =====
+    if (document.getElementById('bookingForm')) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = parseInt(urlParams.get('room_id'));
+        document.getElementById('roomId').value = roomId;
+        
+        const rooms = getRooms();
+        const room = rooms.find(r => r.id === roomId);
+        if (room) {
+            document.getElementById('roomCategory').textContent = `Категория: ${room.category}`;
+        }
+        
+        // Маска телефона
+        if (typeof $ !== 'undefined' && $.fn.inputmask) {
+            $('#validationCustomPhone').inputmask({"mask": "+7(999)999-99-99"});
+        }
+        
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = {
+                name: formData.get('name'),
+                last_name: formData.get('last_name'),
+                phone: formData.get('phone'),
+                email: formData.get('email'),
+                check_in: formData.get('check_in'),
+                check_out: formData.get('check_out')
+            };
+            
+            // Валидация
+            let errors = [];
+            if (!data.name) errors.push('Имя обязательно для заполнения.');
+            if (!data.last_name) errors.push('Фамилия обязательна для заполнения.');
+            if (!data.phone) errors.push('Телефон обязателен для заполнения.');
+            if (!data.email) errors.push('Email обязателен для заполнения.');
+            if (!data.check_in) errors.push('Дата заезда обязательна для заполнения.');
+            if (!data.check_out) errors.push('Дата выезда обязательна для заполнения.');
+            
+            if (data.email && !data.email.includes('@')) {
+                errors.push('Некорректный формат email.');
+            }
+            
+            if (data.check_in && data.check_out) {
+                const checkIn = new Date(data.check_in);
+                const checkOut = new Date(data.check_out);
+                if (checkOut <= checkIn) {
+                    errors.push('Дата выезда должна быть позже даты заезда.');
+                }
+            }
+            
+            if (errors.length > 0) {
+                showFlash(errors.join('<br>'), 'danger');
+                return;
+            }
+            
+            const bookings = getBookings();
+            const newBooking = {
+                id: bookings.length > 0 ? Math.max(...bookings.map(b => b.id)) + 1 : 1,
+                room_id: parseInt(document.getElementById('roomId').value),
+                name: data.name.trim(),
+                last_name: data.last_name.trim(),
+                phone: data.phone.trim(),
+                email: data.email.trim(),
+                check_in: data.check_in,
+                check_out: data.check_out,
+                status: 'pending',
+                user: (getCurrentUser() || {}).username || 'guest',
+                created_at: new Date().toISOString()
+            };
+            bookings.push(newBooking);
+            saveBookings(bookings);
+            
+            showFlash('Ваша заявка успешно отправлена на рассмотрение!', 'success');
+            setTimeout(() => window.location.href = 'index.html', 1500);
+        });
+    }
     
-    // Выход
-    document.getElementById('logoutBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        logout();
-        showFlash('Вы вышли из системы.', 'info');
-        setTimeout(() => {
-            window.location.href = 'index.html';
-        }, 1000);
-    });
-}
+    // ===== СТРАНИЦА ВХОДА =====
+    if (document.getElementById('loginForm')) {
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            const users = getUsers();
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                setCurrentUser({ username: user.username, role: user.role });
+                showFlash('Вы успешно вошли!', 'success');
+                setTimeout(() => {
+                    window.location.href = user.role === 'admin' ? 'admin.html' : 'index.html';
+                }, 1000);
+            } else {
+                showFlash('Неверный логин или пароль.', 'danger');
+            }
+        });
+    }
+    
+    // ===== СТРАНИЦА РЕГИСТРАЦИИ =====
+    if (document.getElementById('registerForm')) {
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const password2 = document.getElementById('regPassword2').value;
+            
+            let errors = [];
+            if (!username) errors.push('Логин обязателен.');
+            if (username.length < 3) errors.push('Логин должен содержать минимум 3 символа.');
+            if (!password) errors.push('Пароль обязателен.');
+            if (password.length < 4) errors.push('Пароль должен содержать минимум 4 символа.');
+            if (password !== password2) errors.push('Пароли не совпадают.');
+            
+            const users = getUsers();
+            if (users.find(u => u.username === username)) {
+                errors.push('Пользователь с таким логином уже существует.');
+            }
+            
+            if (errors.length > 0) {
+                showFlash(errors.join('<br>'), 'danger');
+                return;
+            }
+            
+            users.push({ username, password, role: 'guest' });
+            saveUsers(users);
+            setCurrentUser({ username, role: 'guest' });
+            
+            showFlash('Регистрация успешна! Вы вошли в систему.', 'success');
+            setTimeout(() => window.location.href = 'index.html', 1000);
+        });
+    }
+    
+    // ===== СТРАНИЦА АДМИНИСТРАТОРА =====
+    if (document.getElementById('bookingsContainer')) {
+        if (!isAdmin()) {
+            showFlash('Для доступа к этой странице необходимо войти как администратор.', 'danger');
+            setTimeout(() => window.location.href = 'login.html', 1500);
+        } else {
+            renderBookings(getBookings());
+            
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    logout();
+                    showFlash('Вы вышли из системы.', 'info');
+                    setTimeout(() => window.location.href = 'index.html', 1000);
+                });
+            }
+        }
+    }
+});
