@@ -63,6 +63,63 @@ function saveRooms(rooms) {
 function getBookings() {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.BOOKINGS) || '[]');
 }
+/**
+ * Возвращает массив занятых дат для указанного номера
+ * (только из заявок со статусом 'approved')
+ */
+function getBookedDates(roomId) {
+    const bookings = getBookings();
+    const booked = [];
+    
+    bookings.forEach(booking => {
+        // Учитываем только одобренные заявки на этот номер
+        if (booking.room_id === roomId && booking.status === 'approved') {
+            const start = new Date(booking.check_in);
+            const end = new Date(booking.check_out);
+            
+            // Проходим по всем датам в диапазоне (не включая дату выезда)
+            const current = new Date(start);
+            while (current < end) {
+                booked.push(new Date(current));
+                current.setDate(current.getDate() + 1);
+            }
+        }
+    });
+    
+    return booked;
+}
+
+/**
+ * Проверяет, пересекается ли выбранный диапазон с занятыми датами
+ */
+function isDateRangeBooked(roomId, checkIn, checkOut) {
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const booked = getBookedDates(roomId);
+    
+    const current = new Date(start);
+    while (current < end) {
+        if (booked.some(d => 
+            d.getFullYear() === current.getFullYear() &&
+            d.getMonth() === current.getMonth() &&
+            d.getDate() === current.getDate()
+        )) {
+            return true;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    return false;
+}
+
+/**
+ * Форматирует дату в строку YYYY-MM-DD
+ */
+function formatDate(date) {
+    const d = new Date(date);
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${month}-${day}`;
+}
 
 function saveBookings(bookings) {
     localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(bookings));
