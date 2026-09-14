@@ -254,12 +254,13 @@ function renderBookings(bookings) {
                     </ul>
                     <span class="badge bg-${status.class} mt-2">${status.text}</span>
                 </div>
-                ${booking.status === 'pending' ? `
                     <div class="d-grid gap-2">
+                        ${booking.status === 'pending' ? `
                         <button class="btn btn-success w-100" onclick="approveBooking(${booking.id})">Одобрить</button>
                         <button class="btn btn-danger w-100" onclick="rejectBooking(${booking.id})">Отклонить</button>
+                        ` : ''}
+                        <button class="btn btn-danger w-100" onclick="deleteBooking(${booking.id})">Удалить</button>
                     </div>
-                ` : ''}
             </div>
         `;
     }).join('');
@@ -335,6 +336,18 @@ function rejectBooking(id) {
         showFlash(`Заявка #${id} отклонена.`, 'warning');
         renderBookings(bookings);
     }
+}
+function deleteBooking(id) {
+    if (!confirm(`Вы уверены, что хотите удалить заявку #${id}?`)) {
+        return;
+    }
+    
+    let bookings = getBookings();
+    bookings = bookings.filter(b => b.id !== id);
+    saveBookings(bookings);
+    
+    showFlash(`Заявка #${id} удалена.`, 'success');
+    renderBookings(bookings);
 }
 
 // ===== ОБНОВЛЕНИЕ ШАПКИ =====
