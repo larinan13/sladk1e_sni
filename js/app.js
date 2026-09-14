@@ -461,13 +461,43 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Инициализация Flatpickr — дата выезда
-        const checkOutPicker = flatpickr('#check_out', {
+        // ===== КАЛЕНДАРЬ ВЫЕЗДА =====
+const checkOutPicker = flatpickr('#check_out', {
     locale: 'ru',
     dateFormat: 'Y-m-d',
     minDate: new Date(today.getTime() + 24 * 60 * 60 * 1000),
     disable: bookedDates,
-    position: 'auto left'       // ← позиционирование
+    static: true,
+    appendTo: document.body,
+    onOpen: function(selectedDates, dateStr, instance) {
+        // Принудительно позиционируем календарь под полем, прижимая к правому краю
+        const input = instance.element;
+        const rect = input.getBoundingClientRect();
+        const calendar = instance.calendarContainer;
+        
+        // Ширина календаря
+        const calWidth = calendar.offsetWidth || 315;
+        
+        // Позиционируем так, чтобы правый край календаря совпал с правым краем поля
+        let left = rect.right - calWidth;
+        let top = rect.bottom + 4;
+        
+        // Если вылезает влево — прижимаем к левому краю поля
+        if (left < 8) {
+            left = rect.left;
+        }
+        
+        // Если вылезает вправо — прижимаем к правому краю окна
+        if (left + calWidth > window.innerWidth - 8) {
+            left = window.innerWidth - calWidth - 8;
+        }
+        
+        calendar.style.position = 'fixed';
+        calendar.style.left = left + 'px';
+        calendar.style.top = top + 'px';
+        calendar.style.right = 'auto';
+        calendar.style.zIndex = '99999';
+    }
 });
         
         // Обработка отправки формы
