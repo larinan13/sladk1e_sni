@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/bootstrap.min.css">
     <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <title>Бронирование - Светлые Сны</title>
 </head>
 <body class="container">
@@ -48,15 +49,15 @@
             <div class="invalid-feedback">Пожалуйста, введите email</div>
         </div>
         <div class="col-md-3">
-            <label for="validationCustom04" class="form-label">Дата заезда</label>
-            <input type="date" class="form-control" id="validationCustom04" name="check_in" required>
-            <div class="invalid-feedback">Пожалуйста, введите дату заезда</div>
-        </div>
-        <div class="col-md-3">
-            <label for="validationCustom05" class="form-label">Дата выезда</label>
-            <input type="date" class="form-control" id="validationCustom05" name="check_out" required>
-            <div class="invalid-feedback">Пожалуйста, введите дату выезда</div>
-        </div>
+    <label for="check_in" class="form-label">Дата заезда</label>
+    <input type="text" class="form-control" id="check_in" name="check_in" placeholder="Выберите дату" required>
+    <div class="invalid-feedback">Пожалуйста, введите дату заезда</div>
+</div>
+<div class="col-md-3">
+    <label for="check_out" class="form-label">Дата выезда</label>
+    <input type="text" class="form-control" id="check_out" name="check_out" placeholder="Выберите дату" required>
+    <div class="invalid-feedback">Пожалуйста, введите дату выезда</div>
+</div>
         <div class="d-grid gap-2">
             <button class="btn btn-primary" type="submit">Отправить заявку</button>
         </div>
@@ -74,6 +75,8 @@
 <script src="js/bootstrap.bundle.min.js"></script>
 <script src="js/jquery-3.7.1.slim.min.js"></script>
 <script src="js/jquery.inputmask.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
