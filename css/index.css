@@ -133,3 +133,28 @@ form{
     margin: 1rem 0;
     transition: all .3s ease-in-out;
 }
+/* Стили для Flatpickr */
+.flatpickr-calendar {
+    z-index: 9999 !important;
+    box-shadow: 0 4px 12px rgba(33, 37, 41, 0.15) !important;
+    border-radius: 8px !important;
+    border: none !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover {
+    background: #24B771 !important;
+    border-color: #24B771 !important;
+}
+
+.flatpickr-day.today {
+    border-color: #24B771 !important;
+}
+
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.flatpickr-disabled:hover {
+    color: #ced4da !important;
+    background: #f8f9fa !important;
+    text-decoration: line-through;
+    cursor: not-allowed;
+}
