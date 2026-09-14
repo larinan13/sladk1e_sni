@@ -133,10 +133,10 @@ form{
     margin: 1rem 0;
     transition: all .3s ease-in-out;
 }
-/* Стили для Flatpickr */
+/* ===== Flatpickr: календарь поверх всего ===== */
 .flatpickr-calendar {
-    z-index: 9999 !important;
-    box-shadow: 0 4px 12px rgba(33, 37, 41, 0.15) !important;
+    z-index: 99999 !important;
+    box-shadow: 0 4px 12px rgba(33, 37, 41, 0.18) !important;
     border-radius: 8px !important;
     border: none !important;
 }
