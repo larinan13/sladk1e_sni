@@ -395,80 +395,135 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ===== СТРАНИЦА БРОНИРОВАНИЯ =====
-    if (document.getElementById('bookingForm')) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomId = parseInt(urlParams.get('room_id'));
-        document.getElementById('roomId').value = roomId;
-        
-        const rooms = getRooms();
-        const room = rooms.find(r => r.id === roomId);
-        if (room) {
-            document.getElementById('roomCategory').textContent = `Категория: ${room.category}`;
-        }
-        
-        if (typeof $ !== 'undefined' && $.fn.inputmask) {
-            $('#validationCustomPhone').inputmask({"mask": "+7(999)999-99-99"});
-        }
-        
-        document.getElementById('bookingForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const data = {
-                name: formData.get('name'),
-                last_name: formData.get('last_name'),
-                phone: formData.get('phone'),
-                email: formData.get('email'),
-                check_in: formData.get('check_in'),
-                check_out: formData.get('check_out')
-            };
-            
-            let errors = [];
-            if (!data.name) errors.push('Имя обязательно для заполнения.');
-            if (!data.last_name) errors.push('Фамилия обязательна для заполнения.');
-            if (!data.phone) errors.push('Телефон обязателен для заполнения.');
-            if (!data.email) errors.push('Email обязателен для заполнения.');
-            if (!data.check_in) errors.push('Дата заезда обязательна для заполнения.');
-            if (!data.check_out) errors.push('Дата выезда обязательна для заполнения.');
-            
-            if (data.email && !data.email.includes('@')) {
-                errors.push('Некорректный формат email.');
-            }
-            
-            if (data.check_in && data.check_out) {
-                const checkIn = new Date(data.check_in);
-                const checkOut = new Date(data.check_out);
-                if (checkOut <= checkIn) {
-                    errors.push('Дата выезда должна быть позже даты заезда.');
+if (document.getElementById('bookingForm')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = parseInt(urlParams.get('room_id'));
+    document.getElementById('roomId').value = roomId;
+    
+    const rooms = getRooms();
+    const room = rooms.find(r => r.id === roomId);
+    if (room) {
+        document.getElementById('roomCategory').textContent = `Категория: ${room.category}`;
+    }
+    
+    // Маска для телефона
+    if (typeof $ !== 'undefined' && $.fn.inputmask) {
+        $('#validationCustomPhone').inputmask({"mask": "+7(999)999-99-99"});
+    }
+    
+    // Занятые даты для этого номера
+    const bookedDates = getBookedDates(roomId);
+    
+    // Сегодняшняя дата (для ограничения)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Инициализация Flatpickr для даты заезда
+    const checkInPicker = flatpickr('#check_in', {
+        locale: 'ru',
+        dateFormat: 'Y-m-d',
+        minDate: today,
+        disable: bookedDates,
+        onChange: function(selectedDates) {
+            // Обновляем минимальную дату выезда
+            if (selectedDates[0]) {
+                const nextDay = new Date(selectedDates[0]);
+                nextDay.setDate(nextDay.getDate() + 1);
+                checkOutPicker.set('minDate', nextDay);
+                
+                // Если текущая дата выезда меньше или равна — сбрасываем
+                if (checkOutPicker.selectedDates[0] && checkOutPicker.selectedDates[0] <= selectedDates[0]) {
+                    checkOutPicker.clear();
                 }
             }
+        }
+    });
+    
+    // Инициализация Flatpickr для даты выезда
+    const checkOutPicker = flatpickr('#check_out', {
+        locale: 'ru',
+        dateFormat: 'Y-m-d',
+        minDate: new Date(today.getTime() + 24 * 60 * 60 * 1000), // завтра
+        disable: bookedDates
+    });
+    
+    // Обработка отправки формы
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const data = {
+            name: formData.get('name'),
+            last_name: formData.get('last_name'),
+            phone: formData.get('phone'),
+            email: formData.get('email'),
+            check_in: formData.get('check_in'),
+            check_out: formData.get('check_out')
+        };
+        
+        // ===== ВАЛИДАЦИЯ =====
+        let errors = [];
+        
+        if (!data.name) errors.push('Имя обязательно для заполнения.');
+        if (!data.last_name) errors.push('Фамилия обязательна для заполнения.');
+        if (!data.phone) errors.push('Телефон обязателен для заполнения.');
+        if (!data.email) errors.push('Email обязателен для заполнения.');
+        if (!data.check_in) errors.push('Дата заезда обязательна для заполнения.');
+        if (!data.check_out) errors.push('Дата выезда обязательна для заполнения.');
+        
+        if (data.email && !data.email.includes('@')) {
+            errors.push('Некорректный формат email.');
+        }
+        
+        if (data.check_in && data.check_out) {
+            const checkIn = new Date(data.check_in);
+            const checkOut = new Date(data.check_out);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
             
-            if (errors.length > 0) {
-                showFlash(errors.join('<br>'), 'danger');
-                return;
+            // Дата заезда не раньше сегодня
+            if (checkIn < today) {
+                errors.push('Дата заезда не может быть раньше сегодняшнего дня.');
             }
             
-            const bookings = getBookings();
-            const newBooking = {
-                id: bookings.length > 0 ? Math.max(...bookings.map(b => b.id)) + 1 : 1,
-                room_id: parseInt(document.getElementById('roomId').value),
-                name: data.name.trim(),
-                last_name: data.last_name.trim(),
-                phone: data.phone.trim(),
-                email: data.email.trim(),
-                check_in: data.check_in,
-                check_out: data.check_out,
-                status: 'pending',
-                user: (getCurrentUser() || {}).username || 'guest',
-                created_at: new Date().toISOString()
-            };
-            bookings.push(newBooking);
-            saveBookings(bookings);
+            // Дата выезда позже даты заезда
+            if (checkOut <= checkIn) {
+                errors.push('Дата выезда должна быть позже даты заезда.');
+            }
             
-            showFlash('Ваша заявка успешно отправлена на рассмотрение!', 'success');
-            setTimeout(() => window.location.href = 'index.html', 1500);
-        });
-    }
+            // Проверка на занятые даты
+            if (isDateRangeBooked(roomId, data.check_in, data.check_out)) {
+                errors.push('Выбранный период пересекается с уже забронированными датами. Пожалуйста, выберите другие даты.');
+            }
+        }
+        
+        if (errors.length > 0) {
+            showFlash(errors.join('<br>'), 'danger');
+            return;
+        }
+        
+        // ===== СОХРАНЕНИЕ ЗАЯВКИ =====
+        const bookings = getBookings();
+        const newBooking = {
+            id: bookings.length > 0 ? Math.max(...bookings.map(b => b.id)) + 1 : 1,
+            room_id: parseInt(document.getElementById('roomId').value),
+            name: data.name.trim(),
+            last_name: data.last_name.trim(),
+            phone: data.phone.trim(),
+            email: data.email.trim(),
+            check_in: data.check_in,
+            check_out: data.check_out,
+            status: 'pending',
+            user: (getCurrentUser() || {}).username || 'guest',
+            created_at: new Date().toISOString()
+        };
+        bookings.push(newBooking);
+        saveBookings(bookings);
+        
+        showFlash('Ваша заявка успешно отправлена на рассмотрение!', 'success');
+        setTimeout(() => window.location.href = 'index.html', 1500);
+    });
+}
     
     // ===== СТРАНИЦА ВХОДА =====
     if (document.getElementById('loginForm')) {
