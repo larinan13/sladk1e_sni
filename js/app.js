@@ -42,10 +42,10 @@ function initStorage() {
         localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-        const defaultUsers = [
-            { username: 'admin', password: 'admin', role: 'admin' }
-        ];
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultUsers));
+    const defaultUsers = [
+        { username: 'hotel123', password: 'adminHotel', role: 'admin' }
+    ];
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultUsers));
     }
 }
 
