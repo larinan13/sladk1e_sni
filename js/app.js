@@ -442,13 +442,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Инициализация Flatpickr — дата заезда
         const checkInPicker = flatpickr('#check_in', {
-            locale: 'ru',
-            dateFormat: 'Y-m-d',
-            minDate: today,
-            disable: bookedDates,
-            position: 'auto center',       // ← центрируем календарь
-            appendTo: document.querySelector('main'),  // ← привязка к main
-            onChange: function(selectedDates) {
+    locale: 'ru',
+    dateFormat: 'Y-m-d',
+    minDate: today,
+    disable: bookedDates,
+    position: 'auto left',      // ← позиционирование
+    static: false,
+    onChange: function(selectedDates) {
                 if (selectedDates[0]) {
                     const nextDay = new Date(selectedDates[0]);
                     nextDay.setDate(nextDay.getDate() + 1);
@@ -463,13 +463,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Инициализация Flatpickr — дата выезда
         const checkOutPicker = flatpickr('#check_out', {
-            locale: 'ru',
-            dateFormat: 'Y-m-d',
-            minDate: new Date(today.getTime() + 24 * 60 * 60 * 1000),
-            disable: bookedDates,
-            position: 'auto center',       // ← центрируем календарь
-            appendTo: document.querySelector('main')
-        });
+    locale: 'ru',
+    dateFormat: 'Y-m-d',
+    minDate: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+    disable: bookedDates,
+    position: 'auto left'       // ← позиционирование
+});
         
         // Обработка отправки формы
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
